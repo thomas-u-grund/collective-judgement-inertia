@@ -46,16 +46,23 @@ def contract_categories():
 
 
 def add_recent_contrarian(df, X=RECENT_WINDOW):
+    """Fraction of the user's most recent (up to X) decisions, in placement
+    order, that were contrarian -- irrespective of resolution status.
+    Identical construction to GJP's and Polymarket's recent-contrarian-rate
+    builders (simple positional window, no resolution-time filtering):
+    recent accuracy/baseline accuracy legitimately require known outcomes,
+    but contrarian status is observable at placement time, so this measure
+    should not be restricted to already-resolved decisions.
+    """
     def per_user(d):
-        by_res = d.sort_values("resolutionTime")
-        res_times = by_res.resolutionTime.values
-        contrarian = by_res.is_contrarian.values.astype(float)
-        cum = np.concatenate([[0.0], np.cumsum(contrarian)])
-        ct = d.created_time.values
-        n_known = np.searchsorted(res_times, ct, side="right")
-        window_start = np.clip(n_known - X, 0, None)
-        recent_n = n_known - window_start
-        rc = np.where(recent_n > 0, (cum[n_known] - cum[window_start]) / np.maximum(recent_n, 1), np.nan)
+        d = d.sort_values("created_time")
+        c = d.is_contrarian.values.astype(float)
+        n = len(c)
+        cum = np.concatenate([[0.0], np.cumsum(c)])
+        pos = np.arange(n)
+        start = np.clip(pos - X, 0, None)
+        win_n = pos - start
+        rc = np.where(win_n > 0, (cum[pos] - cum[start]) / np.maximum(win_n, 1), np.nan)
         out = d.copy()
         out["recent_contrarian_rate"] = rc
         return out

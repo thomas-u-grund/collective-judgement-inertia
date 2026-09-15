@@ -22,6 +22,11 @@ BLACK = "#222222"
 GRAY = "#333333"
 MIDGRAY = "#8a8a8a"
 
+# Validated two-series categorical palette (dataviz skill reference palette,
+# slots 1-2: blue/orange, CVD Delta E 9.1+ adjacent, normal-vision 19.6+).
+MANIFOLD_COLOR = "#2a78d6"
+POLYMARKET_COLOR = "#eb6834"
+
 plt.rcParams.update({
     "font.family": "sans-serif", "font.size": 9,
     "axes.spines.top": False, "axes.spines.right": False,
@@ -31,46 +36,36 @@ plt.rcParams.update({
 
 
 def fig1_persistence():
-    # Two panels: (a) exact-K correlation -- the contrarian status of the
-    # decision exactly K steps ahead, not an average over decisions 1..K
-    # (that earlier measure mechanically inflated apparent persistence at
-    # large K by averaging away single-decision noise); (b) the joint-model
-    # recent-contrarian-rate coefficient in five mutually disjoint future
-    # windows (Table 3), showing the exact-K decay is not an artefact of a
-    # single-decision measure -- a genuinely non-overlapping window as
-    # distant as 51-100 decisions ahead still carries a detectable effect.
-    K = [1, 5, 10, 20, 50, 100]
-    r_data = [0.0319, 0.0301, 0.0280, 0.0265, 0.0224, 0.0199]
+    # Exact-K correlation -- the contrarian status of the decision exactly
+    # K steps ahead, not an average over decisions 1..K -- computed
+    # identically (recent-contrarian-rate over the past 20 decisions, built
+    # from placement order irrespective of resolution status, within-person
+    # demeaned Pearson r) on each dataset's own final qualifying panel (same
+    # panel used for the joint model in Fig. 2), in Manifold and Polymarket.
+    # The two platforms are now within a similar order of magnitude, so a
+    # shared linear y-axis is used (no longer log).
+    # (A third dataset, the Good Judgment Project, was also tested; its
+    # persistence result does not survive a first-encounter-per-question
+    # restriction and its consensus was not visible to most participants,
+    # so it is reported only as a structural check, Supplementary Note 1.)
+    manifold_K = [1, 5, 10, 20, 50, 100]
+    manifold_r = [0.2065, 0.1608, 0.1351, 0.1109, 0.0763, 0.0546]
 
-    win_labels = ["1-5", "6-10", "11-20", "21-50", "51-100"]
-    win_x = [0, 1, 2, 3, 4]
-    win_beta = [0.075, 0.070, 0.067, 0.062, 0.054]
-    win_se = [0.012, 0.012, 0.012, 0.013, 0.013]
+    poly_K = [1, 2, 5, 10, 25, 50, 100]
+    poly_r = [0.27213, 0.24515, 0.19979, 0.16383, 0.12106, 0.09377, 0.07411]
 
-    fig, axes = plt.subplots(1, 2, figsize=(7.6, 3.0))
-
-    ax = axes[0]
-    ax.axhline(0, color="#cccccc", lw=0.8, zorder=0)
-    ax.plot(K, r_data, marker="o", color=GRAY, lw=1.8, ms=5)
+    fig, ax = plt.subplots(figsize=(4.6, 3.4))
+    ax.plot(manifold_K, manifold_r, marker="o", color=MANIFOLD_COLOR, lw=1.8, ms=5,
+            mfc=MANIFOLD_COLOR, mec="white", mew=0.6, label="Manifold Markets\n(play-money, 2021-2024)")
+    ax.plot(poly_K, poly_r, marker="s", color=POLYMARKET_COLOR, lw=1.8, ms=5,
+            mfc=POLYMARKET_COLOR, mec="white", mew=0.6, label="Polymarket\n(real-money, 2020-2026)")
     ax.set_xscale("log")
-    ax.set_xticks(K)
-    ax.set_xticklabels([str(k) for k in K])
+    ax.set_ylim(0, 0.30)
+    ax.set_xticks([1, 10, 100])
+    ax.set_xticklabels(["1", "10", "100"])
     ax.set_xlabel("Decisions ahead ($K$)")
     ax.set_ylabel("Correlation ($r$)")
-    ax.set_title("(a) Exact decision $K$ steps ahead", fontsize=9)
-
-    ax = axes[1]
-    ax.axvline(0, color="#cccccc", lw=0.8, zorder=0)
-    cis = [1.96 * s for s in win_se]
-    ypos = np.arange(len(win_labels))[::-1]
-    ax.errorbar(win_beta, ypos, xerr=cis, fmt="o", color=BLACK, ecolor=BLACK,
-                elinewidth=1.3, capsize=3, ms=5, mec="white", mew=0.6)
-    ax.set_yticks(ypos)
-    ax.set_yticklabels(win_labels, fontsize=8)
-    ax.set_ylim(-0.7, len(win_labels) - 0.3)
-    ax.set_ylabel("Non-overlapping future window\n(decisions ahead)")
-    ax.set_xlabel("Coefficient, 95% CI")
-    ax.set_title("(b) Disjoint future windows", fontsize=9)
+    ax.legend(frameon=False, loc="upper right", fontsize=7.5)
 
     fig.tight_layout(pad=1.2)
     fig.savefig(FIGDIR / "fig1_persistence.pdf")
@@ -78,77 +73,103 @@ def fig1_persistence():
 
 
 def fig2_horserace():
-    # Coefficients (not t-statistics) with 95% CIs, from the joint within-
-    # person model at K=1 (person-clustered SEs), as a forest plot: a point
-    # estimate with a CI whisker communicates magnitude and uncertainty
-    # directly, without the implicit area-encoding of a bar chart (which
-    # can look misleading when a CI straddles zero, as two of these three do).
-    labels = ["Recent accuracy", "Baseline accuracy", "Recent contrarian rate"]
-    betas = [-0.0123, 0.0795, 0.0764]
-    ses = [0.00743, 0.05168, 0.01190]
-    fig, ax = plt.subplots(figsize=(4.4, 2.6))
+    # Coefficients (not t-statistics) with 95% CIs, from the identical
+    # joint within-person model (recent accuracy, baseline accuracy,
+    # recent contrarian rate jointly predicting current contrarian
+    # status; person/wallet-clustered SEs), estimated separately on each
+    # dataset's own final qualifying panel (same panel as Fig. 1).
+    # Combined on one shared x-axis, colored by dataset, with a small
+    # vertical offset per category so the two datasets' CIs don't
+    # overlap; the shared axis makes the real magnitude gap between
+    # platforms visible rather than hiding it behind separate scales.
+    labels = ["Recent\naccuracy", "Baseline\naccuracy", "Recent\ncontrarian rate"]
+    manifold = ([0.01232, 0.03990, 0.57448], [0.00489, 0.02210, 0.01508])
+    polymarket = ([-0.00761, -0.03373, 0.63196], [0.00192, 0.01067, 0.00685])
+
+    fig, ax = plt.subplots(figsize=(5.6, 3.2))
     ax.axvline(0, color="#cccccc", lw=0.8, zorder=0)
     ypos = np.arange(len(labels))[::-1]
-    cis = [1.96 * s for s in ses]
-    ax.errorbar(betas, ypos, xerr=cis, fmt="o", color=BLACK, ecolor=BLACK,
-                elinewidth=1.3, capsize=3, ms=6, mec="white", mew=0.6)
+    offset = 0.14
+
+    betas, ses = manifold
+    ax.errorbar(betas, ypos + offset, xerr=[1.96 * s for s in ses], fmt="o",
+                color=MANIFOLD_COLOR, ecolor=MANIFOLD_COLOR, elinewidth=1.3, capsize=3,
+                ms=6, mec="white", mew=0.6, label="Manifold Markets")
+    betas, ses = polymarket
+    ax.errorbar(betas, ypos - offset, xerr=[1.96 * s for s in ses], fmt="s",
+                color=POLYMARKET_COLOR, ecolor=POLYMARKET_COLOR, elinewidth=1.3, capsize=3,
+                ms=6, mec="white", mew=0.6, label="Polymarket")
+
     ax.set_yticks(ypos)
     ax.set_yticklabels(labels, fontsize=8.5)
     ax.set_ylim(-0.7, len(labels) - 0.3)
-    ax.set_xlabel("Coefficient (within-person, 95% CI)\npredicting next decision's contrarian status")
-    fig.tight_layout()
+    ax.set_xlabel("Coefficient, 95% CI")
+    ax.legend(frameon=False, loc="upper right", fontsize=7.5)
+
+    fig.tight_layout(pad=1.2)
     fig.savefig(FIGDIR / "fig2_horserace.pdf")
     plt.close(fig)
 
 
 def fig3_category():
-    # Coefficients with 95% CIs (person-clustered SEs), matching
-    # table_category.tex, as forest plots.
-    fig, axes = plt.subplots(1, 2, figsize=(6.8, 2.8))
+    # Coefficients with 95% CIs (person/wallet-clustered SEs), matching
+    # table_category.tex, as forest plots, in Manifold and Polymarket
+    # (both have genuinely heterogeneous topic/market-type content and a
+    # keyword-based classification; Methods). Combined per panel, colored
+    # by dataset, small vertical offset per category. The Good Judgment
+    # Project is not included: its questions are, by the tournament's own
+    # design, uniformly geopolitical, so no non-arbitrary topic split
+    # analogous to the other two platforms exists (Supplementary Note 12).
+    fig, axes = plt.subplots(1, 2, figsize=(7.6, 3.2))
+    offset = 0.14
 
-    ax = axes[0]
-    labels = ["Same category", "Different category"]
-    betas = [0.069, 0.061]
-    ses = [0.017, 0.014]
-    ypos = np.arange(len(labels))[::-1]
-    ax.axvline(0, color="#cccccc", lw=0.8, zorder=0)
-    ax.errorbar(betas, ypos, xerr=[1.96 * s for s in ses], fmt="o", color=BLACK,
-                ecolor=BLACK, elinewidth=1.3, capsize=3, ms=6, mec="white", mew=0.6)
-    ax.set_yticks(ypos)
-    ax.set_yticklabels(labels, fontsize=8.5)
-    ax.set_ylim(-0.7, len(labels) - 0.3)
-    ax.set_xlabel("Coefficient, 95% CI\n(recent contrarian rate -> next bet)")
-    ax.set_title("(a) Next bet's category", fontsize=9)
+    def combined_panel(ax, labels, m_betas, m_ses, p_betas, p_ses, title, legend=False):
+        ypos = np.arange(len(labels))[::-1]
+        ax.axvline(0, color="#cccccc", lw=0.8, zorder=0)
+        ax.errorbar(m_betas, ypos + offset, xerr=[1.96 * s for s in m_ses], fmt="o",
+                    color=MANIFOLD_COLOR, ecolor=MANIFOLD_COLOR, elinewidth=1.3, capsize=3,
+                    ms=6, mec="white", mew=0.6, label="Manifold Markets")
+        ax.errorbar(p_betas, ypos - offset, xerr=[1.96 * s for s in p_ses], fmt="s",
+                    color=POLYMARKET_COLOR, ecolor=POLYMARKET_COLOR, elinewidth=1.3, capsize=3,
+                    ms=6, mec="white", mew=0.6, label="Polymarket")
+        ax.set_yticks(ypos)
+        ax.set_yticklabels(labels, fontsize=8.5)
+        ax.set_ylim(-0.7, len(labels) - 0.3)
+        ax.set_xlabel("Coefficient, 95% CI", fontsize=8.5)
+        ax.set_title(title, fontsize=9)
+        if legend:
+            ax.legend(frameon=False, loc="lower right", fontsize=7.5)
 
-    ax = axes[1]
-    cats = ["Politics", "Sports", "Tech/AI", "Crypto/finance", "Science"]
-    betas2 = [0.074, 0.092, 0.039, 0.063, 0.008]
-    ses2 = [0.018, 0.027, 0.018, 0.026, 0.037]
-    ypos2 = np.arange(len(cats))[::-1]
-    ax.axvline(0, color="#cccccc", lw=0.8, zorder=0)
-    ax.errorbar(betas2, ypos2, xerr=[1.96 * s for s in ses2], fmt="o", color=BLACK,
-                ecolor=BLACK, elinewidth=1.3, capsize=3, ms=6, mec="white", mew=0.6)
-    ax.set_yticks(ypos2)
-    ax.set_yticklabels(cats, fontsize=8.5)
-    ax.set_ylim(-0.7, len(cats) - 0.3)
-    ax.set_xlabel("Coefficient, 95% CI, within category")
-    ax.set_title("(b) Effect size by category", fontsize=9)
+    combined_panel(
+        axes[0], ["Same category", "Different category"],
+        [0.566, 0.304], [0.0146, 0.0181],
+        [0.597, 0.277], [0.0113, 0.0141],
+        "(a) Next decision's category", legend=True,
+    )
+    combined_panel(
+        axes[1], ["Politics", "Sports", "Tech/AI", "Crypto/finance", "Science"],
+        [0.556, 0.547, 0.514, 0.563, 0.457], [0.0242, 0.0180, 0.0307, 0.0287, 0.0459],
+        [0.620, 0.568, 0.532, 0.627, 0.614], [0.0122, 0.0149, 0.0196, 0.0100, 0.0487],
+        "(b) Effect size by category",
+    )
 
-    fig.tight_layout()
+    fig.tight_layout(pad=1.2)
     fig.savefig(FIGDIR / "fig3_category.pdf")
     plt.close(fig)
 
 
 def fig4_habit_model():
-    # Calibrated against the corrected exact-K empirical decay curve (not the
-    # earlier average-over-1..K measure). rho=0.998 has a mixing time of
-    # ~1/(1-rho)=500 rounds, so burn-in and total simulation length are set
-    # to several multiples of that (grid search over rho, sigma against the
-    # empirical curve; see sim/calibrate_habit_model.py).
-    cfg = Config(rho=0.998, sigma=0.013, n_rounds=7499)
+    # Calibrated against the exact-K empirical decay curve computed with
+    # recent contrarian rate built from placement order (irrespective of
+    # resolution status), matching GJP's and Polymarket's construction.
+    # rho=0.986 has a mixing time of ~1/(1-rho)=71 rounds; burn-in and total
+    # simulation length are set to several multiples of that (grid search
+    # over rho, sigma against the empirical curve; see
+    # sim/calibrate_habit_model.py).
+    cfg = Config(rho=0.986, sigma=0.100, n_rounds=2000)
     df = simulate(cfg, seed=1)
     df = add_recent_rate(df)
-    q = df[df["round"] >= 3999].dropna(subset=["recent_rate"])
+    q = df[df["round"] >= 571].dropna(subset=["recent_rate"])
     K_list = [1, 5, 10, 20, 50, 100]
     r_model = []
     for K in K_list:
@@ -156,7 +177,7 @@ def fig4_habit_model():
         _, r, _ = within_agent(qk, "recent_rate", f"exact_{K}")
         r_model.append(r)
 
-    r_data = [0.0319, 0.0301, 0.0280, 0.0265, 0.0224, 0.0199]
+    r_data = [0.2065, 0.1608, 0.1351, 0.1109, 0.0763, 0.0546]
     fig, ax = plt.subplots(figsize=(3.6, 2.8))
     ax.axhline(0, color="#cccccc", lw=0.8, zorder=0)
     ax.plot(K_list, r_data, marker="o", color=BLACK, lw=1.8, ms=5,

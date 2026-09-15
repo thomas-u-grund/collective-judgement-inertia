@@ -24,25 +24,37 @@ MIN_QUALIFYING_ROWS = 20
 
 def add_disjoint_x(df: pd.DataFrame, X: int) -> pd.DataFrame:
     def per_user(d: pd.DataFrame) -> pd.DataFrame:
+        # Recent/baseline accuracy: necessarily resolution-time filtered
+        # (accuracy can only be scored on decisions whose outcome is known).
         by_res = d.sort_values("resolutionTime")
         res_times = by_res.resolutionTime.values
         correct = by_res.bet_correct.values.astype(float)
-        contrarian = by_res.is_contrarian.values.astype(float)
         cum = np.concatenate([[0.0], np.cumsum(correct)])
-        cum_c = np.concatenate([[0.0], np.cumsum(contrarian)])
         ct = d.created_time.values
         n_known = np.searchsorted(res_times, ct, side="right")
         window_start = np.clip(n_known - X, 0, None)
         recent_n = n_known - window_start
         recent_skill = np.where(recent_n > 0, (cum[n_known] - cum[window_start]) / np.maximum(recent_n, 1), np.nan)
-        recent_contrarian_rate = np.where(
-            recent_n > 0, (cum_c[n_known] - cum_c[window_start]) / np.maximum(recent_n, 1), np.nan)
         baseline_n = window_start
         baseline_skill = np.where(baseline_n > 0, cum[window_start] / np.maximum(baseline_n, 1), np.nan)
+
+        # Recent contrarian rate: simple positional window over the most
+        # recent X decisions in placement order, irrespective of resolution
+        # status (identical construction to the main text; see category_check.py).
+        d_pos = d.sort_values("created_time")
+        c = d_pos.is_contrarian.values.astype(float)
+        m = len(c)
+        cum_c = np.concatenate([[0.0], np.cumsum(c)])
+        pos = np.arange(m)
+        start = np.clip(pos - X, 0, None)
+        win_n = pos - start
+        rc = np.where(win_n > 0, (cum_c[pos] - cum_c[start]) / np.maximum(win_n, 1), np.nan)
+        rc_by_index = pd.Series(rc, index=d_pos.index)
+
         out = d.copy()
         out["recent_skill"] = recent_skill
         out["baseline_skill"] = baseline_skill
-        out["recent_contrarian_rate"] = recent_contrarian_rate
+        out["recent_contrarian_rate"] = rc_by_index.reindex(out.index).values
         out["n_known_prior"] = n_known
         out["baseline_n"] = baseline_n
         return out

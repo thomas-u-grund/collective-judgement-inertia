@@ -7,3 +7,9 @@ results/
 figures/
 *.parquet
 *.csv
+*.tab
+*.bin
+readme_pm.txt
+readme_pm_clean.txt
+readme_survey.txt
+ifps.csv

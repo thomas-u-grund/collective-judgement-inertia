@@ -17,7 +17,7 @@ from model_habit import Config, simulate  # noqa: E402
 from analyze_habit import add_recent_rate, add_exact_k, within_agent  # noqa: E402
 
 K_LIST = [1, 5, 10, 20, 50, 100]
-R_EMPIRICAL = [0.0319, 0.0301, 0.0280, 0.0265, 0.0224, 0.0199]
+R_EMPIRICAL = [0.2065, 0.1608, 0.1351, 0.1109, 0.0763, 0.0546]
 
 
 def run_config(rho, sigma, seed=1):
@@ -38,8 +38,9 @@ def run_config(rho, sigma, seed=1):
 
 if __name__ == "__main__":
     candidates = [
-        (0.997, 0.013), (0.997, 0.014), (0.998, 0.013), (0.998, 0.014),
-        (0.9985, 0.012), (0.9985, 0.013),
+        (rho, sigma)
+        for rho in [0.984, 0.985, 0.986, 0.987]
+        for sigma in [0.090, 0.095, 0.100, 0.105, 0.110]
     ]
     print(f"{'rho':>7} {'sigma':>7}  " + "  ".join(f"K={k:<4}" for k in K_LIST) + "   sse")
     print(f"{'empir':>7} {'':>7}  " + "  ".join(f"{r:+.4f}" for r in R_EMPIRICAL))
