@@ -10,40 +10,64 @@ manuscript itself, the underlying data, or generated output files.
 ## Datasets
 
 The paper analyses three independent, publicly available sources. This
-repository does not redistribute any of them.
+repository does not redistribute any of them; obtain each directly from
+its own source below and place the files as described.
 
-**Manifold Markets** (`manifold_prototype/`) -- bulk historical data
-covering bets on resolved binary-outcome markets, 17 December 2021
-through 4 July 2024. Obtain it from Manifold under their published data
-terms (`docs.manifold.markets/data`) and place it in a local directory
-containing (at minimum):
+### Manifold Markets (`manifold_prototype/`)
 
-- `bets_dataset/` (Parquet)
-- `contracts_dataset/` (Parquet)
-- `contracts_groupSlugs.csv`
+Bulk historical data covering bets on resolved binary-outcome markets,
+17 December 2021 through 4 July 2024.
 
-Point the scripts at that directory with an environment variable:
+1. Go to Manifold's published data documentation:
+   [docs.manifold.markets/data](https://docs.manifold.markets/data).
+2. Download the bulk bets and contracts exports described there
+   (Parquet format) plus the `contracts_groupSlugs.csv` mapping file.
+3. Place them in a single local directory containing, at minimum:
+   - `bets_dataset/` (Parquet)
+   - `contracts_dataset/` (Parquet)
+   - `contracts_groupSlugs.csv`
+4. Point the scripts at that directory:
 
-```bash
-export MANIFOLD_DATA_DIR=/path/to/your/manifold/data
-```
+   ```bash
+   export MANIFOLD_DATA_DIR=/path/to/your/manifold/data
+   ```
 
-If unset, scripts default to `./data/manifold` relative to
-`manifold_prototype/` (see `manifold_prototype/config.py`).
+   If unset, scripts default to `./data/manifold` relative to
+   `manifold_prototype/` (see `manifold_prototype/config.py`).
 
-**Polymarket** (`polymarket_hf/`) -- trade-level data covering
-Polymarket's full history, 2020--2026. Obtain it from
-`huggingface.co/datasets/SII-WANGZJ/Polymarket_data` (MIT licence).
-`extract_panel.py` queries the hosted Parquet files directly via DuckDB's
-`httpfs` extension; downstream scripts expect the resulting intermediate
-Parquet files (`poly_panel_raw.parquet`, `resolved_binary_markets.parquet`,
-`wallet_counts.parquet`, etc.) in the working directory.
+### Polymarket (`polymarket_hf/`)
 
-**Good Judgment Project** (`gjp/`) -- geopolitical-forecasting-tournament
-survey data, 2011--2015. Obtain it from Harvard Dataverse
-(`doi.org/10.7910/DVN/BPCDH5`); `build_panel.py` expects the raw
-`ifps.csv` and `survey_fcasts.yr{1..4}.tab` files in the working
-directory.
+Trade-level data covering Polymarket's full history, 2020--2026,
+released under the MIT licence.
+
+1. Dataset page:
+   [huggingface.co/datasets/SII-WANGZJ/Polymarket_data](https://huggingface.co/datasets/SII-WANGZJ/Polymarket_data).
+2. No manual download is required for the extraction step:
+   `polymarket_hf/extract_panel.py` reads the hosted Parquet files
+   directly from
+   `https://huggingface.co/datasets/SII-WANGZJ/Polymarket_data/resolve/main/trades.parquet`
+   via DuckDB's `httpfs` extension (`pip install duckdb`).
+3. Run `extract_panel.py` from inside `polymarket_hf/`; it writes the
+   intermediate Parquet files (`poly_panel_raw.parquet`,
+   `resolved_binary_markets.parquet`, `wallet_counts.parquet`, etc.) that
+   `build_poly_panel.py` and every downstream script expect to find in
+   the working directory.
+
+### Good Judgment Project (`gjp/`)
+
+Geopolitical-forecasting-tournament survey data, 2011--2015.
+
+1. Dataverse record:
+   [doi.org/10.7910/DVN/BPCDH5](https://doi.org/10.7910/DVN/BPCDH5)
+   (Harvard Dataverse; free registration may be required to download).
+2. Download the individual forecast records (`survey_fcasts.yr1.tab`
+   through `survey_fcasts.yr4.tab`) and the question metadata
+   (`ifps.csv`).
+3. Place them in `gjp/` (or point `build_panel.py`'s `BASE` variable at
+   wherever you saved them).
+4. Run `build_panel.py` from inside `gjp/`; it writes
+   `gjp_decisions_panel.parquet`, which `matched_skill.py` and every
+   downstream script expect to find in the working directory.
 
 ## Setup
 
